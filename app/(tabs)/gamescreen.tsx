@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, SafeAreaView, Dimensions, TouchableOpacity } from 'react-native';
-import ReactPlayer from 'react-player/lazy'; // Use the lazy version
+import YoutubeIframe from 'react-native-youtube-iframe';
 
 export default function GameScreen() {
     const [score, setScore] = useState(0);
@@ -16,20 +16,30 @@ export default function GameScreen() {
         }
     };
 
+    const videoHeight = 200; // Fixed height for the video
+    const videoWidth = videoHeight * (16 / 9); // Maintain the 16:9 aspect ratio
+
     return (
         <SafeAreaView style={styles.container}>
+
             <View style={styles.headerContainer}>
                 <Text style={styles.welcomeText}>Welcome to Music Guess App!</Text>
             </View>
 
             <View style={styles.videoContainer}>
                 {videoId ? (
-                    <ReactPlayer
-                        controls={true}
-                        url={`https://www.youtube.com/watch?v=${videoId}`}
-                        width='100%'
-                        height='100%'
-                    />
+                    <View style={styles.videoWrapper}>
+                        <YoutubeIframe
+                            height={videoHeight}
+                            width={videoWidth}
+                            videoId={videoId}
+                            play={true}
+                            initialPlayerParams={{
+                                start: 10, // Start video at the 10th second
+                            }}
+                            onChangeState={event => console.log(event)}
+                        />
+                    </View>
                 ) : (
                     <Text style={styles.placeholderText}>Loading video...</Text>
                 )}
@@ -55,6 +65,7 @@ export default function GameScreen() {
                     </TouchableOpacity>
                 </View>
             </View>
+
         </SafeAreaView>
     );
 }
@@ -83,9 +94,16 @@ const styles = StyleSheet.create({
         width: width - 65,
         height: 200,
         marginHorizontal: 20,
-        backgroundColor: '#000',
+        backgroundColor: '#000', // Black background to simulate letterboxing
         borderRadius: 10,
-        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 5,
+    },
+    videoWrapper: {
+        position: 'relative',
     },
     placeholderText: {
         fontSize: 16,
