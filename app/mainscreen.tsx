@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, View, Text, SafeAreaView, TextInput, TouchableOpacity, Alert } from 'react-native';
-import GameScreen from './gamescreen'; // Dosya yolunu kontrol edin
+import GameScreen from './gamewaitingarea'; // Dosya yolunu kontrol edin
+import axios from 'axios';
 
 export default function HomeScreen() {
     const [playerName, setPlayerName] = useState('Player Name');
@@ -9,21 +10,57 @@ export default function HomeScreen() {
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [selectedSearchOption, setSelectedSearchOption] = useState<string | null>(null);
     const [selectedCustomGameOption, setSelectedCustomGameOption] = useState<string | null>(null);
-    const [showGameScreen, setShowGameScreen] = useState(false);
+    const [showGameWaitingArea, setShowGameWaitingArea] = useState(false);
+    const [playerId, setPlayerId] = useState<string | null>(null);
 
-    const handleGame = () => {
-        setShowGameScreen(true);
+    const handleGame = async () => {
+        if (!selectedType || !selectedCategory || !selectedSearchOption) {
+            Alert.alert('Eksik Seçim', 'Lütfen tüm seçenekleri doldurduğunuzdan emin olun.');
+            return;
+        }
+
+        try {
+            const payload = {
+                playerName: playerName.trim(),
+                selectedType: selectedType,
+                selectedCategory: selectedCategory,
+                selectedSearchOption: selectedSearchOption,
+                selectedCustomGameOption: selectedCustomGameOption || undefined,
+            };
+
+            const response = await axios.post('http://127.0.0.1:5000/create-lobby', payload);
+            console.log('API Yanıtı:', response.data);
+
+            if (response.data.status === 'Lobiye katıldınız') {
+                setPlayerId(response.data.lobbyId);
+                setShowGameWaitingArea(true);
+            } else {
+                Alert.alert('Hata', 'Lobiye katılma başarısız oldu.');
+            }
+        } catch (error) {
+            console.error('API isteği sırasında bir hata oluştu:', error);
+            Alert.alert('Hata', 'API isteği sırasında bir hata oluştu.');
+        }
     };
 
     const handleNameChange = (name: string) => {
         setPlayerName(name);
     };
 
+    const handleBack = () => {
+        setShowGameWaitingArea(false);
+        setPlayerId(null);
+        setSelectedType(null);
+        setSelectedCategory(null);
+        setSelectedSearchOption(null);
+        setSelectedCustomGameOption(null);
+    };
+
     const handleSave = () => {
         if (playerName.length >= 3 && playerName.length <= 25) {
             setEditable(false);
         } else {
-            Alert.alert('Invalid Name', 'Name must be between 3 and 25 characters.');
+            Alert.alert('Geçersiz İsim', 'İsim 3 ile 25 karakter arasında olmalıdır.');
         }
     };
 
@@ -37,17 +74,21 @@ export default function HomeScreen() {
 
     const handleSearchOptionSelect = (option: string) => {
         setSelectedSearchOption(option);
-        setSelectedCustomGameOption(null); // Seçili özel oyun seçeneğini sıfırla
+        setSelectedCustomGameOption(null);
     };
 
     const handleCustomGameOptionSelect = (option: string) => {
         setSelectedCustomGameOption(option);
     };
 
+    const handleProceed = () => {
+        // Proceed işlemlerini burada tanımlayın
+    };
+
     return (
         <SafeAreaView style={styles.container}>
-            {showGameScreen ? (
-                <GameScreen />
+            {showGameWaitingArea && playerId ? (
+                <GameScreen playerId={playerId} onProceed={handleProceed} onBack={handleBack} />
             ) : (
                 <>
                     <Text style={styles.welcomeText}>Welcome to Music Guess App!</Text>
@@ -178,6 +219,7 @@ export default function HomeScreen() {
         </SafeAreaView>
     );
 }
+
 
 const styles = StyleSheet.create({
     container: {
