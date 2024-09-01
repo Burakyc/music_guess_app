@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, StatusBar, Platform } from 'react-native';
-//import MainScreen from './mainscreen';
-import MainScreen from './gamescreen';
+import MainScreen from './mainscreen';
+//import MainScreen from './gamescreen';
 
 export default function App() {
     const [showMainScreen, setShowMainScreen] = useState(false);

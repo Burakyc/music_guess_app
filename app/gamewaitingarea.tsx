@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, StatusBar } from 'react-native';
-import GameScreen from './gamescreen'; // Dosya yolunu kontrol edin
 import axios from 'axios';
+import GameScreen from './gamescreen'; // Import GameScreen component
 
 interface WaitingScreenProps {
     playerId: string;
@@ -11,6 +11,11 @@ interface WaitingScreenProps {
 
 export default function WaitingScreen({ playerId, onProceed, onBack }: WaitingScreenProps) {
     const [lobbies, setLobbies] = useState<{ lobbyId: string; players: { id: string; name: string }[] } | null>(null);
+    const [showMainScreen, setShowMainScreen] = useState(false);
+
+    const handleLogin = () => {
+        setShowMainScreen(true);
+    };
 
     const fetchLobbies = async () => {
         try {
@@ -25,7 +30,6 @@ export default function WaitingScreen({ playerId, onProceed, onBack }: WaitingSc
 
             console.log('API Response:', response.data);
 
-            // Check if the response data is an object with the expected properties
             if (
                 response.data &&
                 typeof response.data === 'object' &&
@@ -41,20 +45,47 @@ export default function WaitingScreen({ playerId, onProceed, onBack }: WaitingSc
         }
     };
 
-    useEffect(() => {
-        fetchLobbies(); // Fetch data initially
+    const updateReadyStatus = async () => {
+        try {
+            if (!lobbies || !playerId) {
+                console.error('Lobi veya Oyuncu bilgisi mevcut değil.');
+                return;
+            }
 
-        // Set up interval to fetch data every 5 seconds
+            const response = await axios.post('http://192.168.1.106:5000/update-ready-status', {
+                lobbyId: lobbies.lobbyId,
+                playerId: playerId,
+                ready: 'ready'
+            });
+
+            console.log('Ready durumu güncellendi:', response.data);
+
+            if (response.data.status === 'success') {
+                handleLogin(); // Show the MainScreen after successfully updating the ready status
+            } else {
+                console.error('Ready durumu güncellenemedi:', response.data.message);
+            }
+        } catch (error) {
+            console.error('Ready durumu güncellenirken bir hata oluştu:', error);
+        }
+    };
+
+    useEffect(() => {
+        fetchLobbies();
+
         const intervalId = setInterval(fetchLobbies, 5000);
 
-        // Clear interval on component unmount
         return () => clearInterval(intervalId);
     }, [playerId]);
 
-    // Format players array to a string with player names
     const formatPlayers = (players: { id: string; name: string }[]) => {
         return players.map(player => player.name).join('\n');
     };
+
+    // Conditionally render GameScreen if showMainScreen is true
+    if (showMainScreen && lobbies) {
+        return <GameScreen lobby={lobbies} />; // Pass lobbies to GameScreen
+    }
 
     return (
         <View style={styles.container}>
@@ -83,8 +114,8 @@ export default function WaitingScreen({ playerId, onProceed, onBack }: WaitingSc
                 <View style={styles.waitingContent}>
                     <Text style={styles.text}>Oyun Bekleme Ekranı</Text>
                     <Text style={styles.description}>Oyun başlamak üzere, lütfen bekleyin...</Text>
-                    <TouchableOpacity style={styles.button} onPress={onProceed}>
-                        <Text style={styles.buttonText}>Hazır</Text>
+                    <TouchableOpacity style={styles.button} onPress={updateReadyStatus}>
+                        <Text style={styles.buttonText}>Oyunu başlat</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.button} onPress={onBack}>
                         <Text style={styles.buttonText}>Ana Menü</Text>

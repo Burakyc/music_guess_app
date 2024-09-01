@@ -12,19 +12,21 @@ lobby_players = {}  # Dictionary to store players in each lobby
 LOBBY_LIMIT = 4  # Maximum number of players per lobby
 CSV_FILE = 'lobbies.csv'  # CSV file name
 
+
 # Function to write lobby data to CSV
-def write_to_csv(lobby_id, player_info):
+def write_to_csv(lobby_id, player_info, game_type):
     file_exists = os.path.isfile(CSV_FILE)
     with open(CSV_FILE, mode='a', newline='') as file:
         writer = csv.writer(file)
         if not file_exists:
-            writer.writerow(['Lobby ID', 'Player ID', 'Player Name'])  # Write header if file is new
-        writer.writerow([lobby_id, player_info['id'], player_info['name']])
+            writer.writerow(['Lobby ID', 'Player ID', 'Player Name', 'ready', 'oyuntürü'])  # Add 'oyuntürü' in the header
+        writer.writerow([lobby_id, player_info['id'], player_info['name'], player_info.get('ready', 'not ready'), game_type])  # Include 'oyuntürü' in the row
 
 def find_or_create_lobby(player_name, selected_type, selected_category, selected_search_option, selected_custom_game_option):
     # Assign a unique ID to the player
     player_id = str(uuid.uuid4())
-    player_info = {'id': player_id, 'name': player_name}
+    player_info = {'id': player_id, 'name': player_name, 'ready': 'not ready'}  # Default to 'not ready'
+    game_type = selected_category  # Assuming 'oyuntürü' corresponds to 'selectedCategory'
 
     # Try to find an existing lobby that matches the criteria
     for lobby_id, lobby in lobbies.items():
@@ -34,7 +36,7 @@ def find_or_create_lobby(player_name, selected_type, selected_category, selected
             len(lobby_players[lobby_id]) < LOBBY_LIMIT):
             # A suitable lobby is found, add the player to it
             lobby_players[lobby_id].append(player_info)
-            write_to_csv(lobby_id, player_info)  # Write to CSV
+            write_to_csv(lobby_id, player_info, game_type)  # Write to CSV with game type
             return lobby_id, 'Lobiye katıldınız', lobby_players[lobby_id]
     
     # No suitable lobby found, create a new lobby
@@ -51,10 +53,9 @@ def find_or_create_lobby(player_name, selected_type, selected_category, selected
     # Add the player to the new lobby
     lobbies[lobby_id]['players'].append(player_info)
     lobby_players[lobby_id] = [player_info]
-    write_to_csv(lobby_id, player_info)  # Write to CSV
+    write_to_csv(lobby_id, player_info, game_type)  # Write to CSV with game type
 
     return lobby_id, 'Lobi oluşturuldu', lobbies[lobby_id]
-
 
 @app.route('/create-lobby', methods=['POST'])
 def create_lobby():
@@ -102,7 +103,8 @@ def get_lobbies():
                 if row['Lobby ID'].strip() == lobby_id.strip():  # Match the lobby ID
                     player_lobbies.append({
                         'id': row['Player ID'].strip(),
-                        'name': row['Player Name'].strip()
+                        'name': row['Player Name'].strip(),
+                        'ready': row['ready'].strip()  # Include the ready status
                     })
     except UnicodeDecodeError:
         print(f"Error decoding the CSV file with utf-8 encoding. Trying with a different encoding.")
@@ -113,7 +115,8 @@ def get_lobbies():
                     if row['Lobby ID'].strip() == lobby_id.strip():  # Match the lobby ID
                         player_lobbies.append({
                             'id': row['Player ID'].strip(),
-                            'name': row['Player Name'].strip()
+                            'name': row['Player Name'].strip(),
+                            'ready': row['ready'].strip()  # Include the ready status
                         })
         except Exception as e:
             print(f"Error reading CSV file: {e}")
@@ -130,8 +133,46 @@ def get_lobbies():
         'players': player_lobbies,
         'status': 'Lobiye katıldınız'
     }), 200
+@app.route('/update-ready-status', methods=['POST'])
+def update_ready_status():
+    data = request.get_json()
+    
+    lobby_id = data.get('playerId')
+    ready_status = data.get('ready')
 
+    if not lobby_id or ready_status is None:
+        return jsonify({'message': 'Lobi ID ve Ready durumu gerekli', 'status': 'error'}), 400
 
+    updated = False
+    rows = []
+    
+    # Read the CSV and update the relevant player's ready status in the specified lobby
+    try:
+        with open(CSV_FILE, mode='r', encoding='utf-8') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                if row['Lobby ID'].strip() == lobby_id.strip():
+                    row['ready'] = ready_status
+                    updated = True
+                rows.append(row)
+    except Exception as e:
+        print(f"Error reading CSV file: {e}")
+        return jsonify({'message': 'CSV dosyası okunamadı', 'status': 'error'}), 500
+
+    if not updated:
+        return jsonify({'message': 'Lobi bulunamadı veya lobiye ait oyuncular bulunamadı', 'status': 'error'}), 404
+
+    # Write the updated data back to the CSV
+    try:
+        with open(CSV_FILE, mode='w', newline='', encoding='utf-8') as file:
+            writer = csv.DictWriter(file, fieldnames=['Lobby ID', 'Player ID', 'Player Name', 'ready','oyuntürü'])
+            writer.writeheader()
+            writer.writerows(rows)
+    except Exception as e:
+        print(f"Error writing to CSV file: {e}")
+        return jsonify({'message': 'CSV dosyasına yazılamadı', 'status': 'error'}), 500
+
+    return jsonify({'message': 'Ready durumu güncellendi', 'status': 'success'}), 200
 
 
 if __name__ == '__main__':

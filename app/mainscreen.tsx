@@ -12,6 +12,7 @@ export default function HomeScreen() {
     const [selectedCustomGameOption, setSelectedCustomGameOption] = useState<string | null>(null);
     const [showGameWaitingArea, setShowGameWaitingArea] = useState(false);
     const [playerId, setPlayerId] = useState<string | null>(null);
+    const [lobbyId, setlobbyId] = useState<string | null>(null);
 
     const handleGame = async () => {
         if (!selectedType || !selectedCategory || !selectedSearchOption) {
@@ -32,7 +33,6 @@ export default function HomeScreen() {
             console.log('API Yanıtı:', response.data);
 
             // Yanıtın doğru formatta olup olmadığını kontrol edin ama ben etmeden yolluyorum
-
             setPlayerId(response.data.lobbyId);
             setShowGameWaitingArea(true);
 
@@ -215,8 +215,9 @@ export default function HomeScreen() {
                         )}
                     </View>
                 </>
-            )}
-        </SafeAreaView>
+            )
+            }
+        </SafeAreaView >
     );
 }
 
