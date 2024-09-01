@@ -28,20 +28,20 @@ export default function HomeScreen() {
                 selectedCustomGameOption: selectedCustomGameOption || undefined,
             };
 
-            const response = await axios.post('http://127.0.0.1:5000/create-lobby', payload);
+            const response = await axios.post('http://192.168.1.106:5000/create-lobby', payload);
             console.log('API Yanıtı:', response.data);
 
-            if (response.data.status === 'Lobiye katıldınız') {
-                setPlayerId(response.data.lobbyId);
-                setShowGameWaitingArea(true);
-            } else {
-                Alert.alert('Hata', 'Lobiye katılma başarısız oldu.');
-            }
+            // Yanıtın doğru formatta olup olmadığını kontrol edin ama ben etmeden yolluyorum
+
+            setPlayerId(response.data.lobbyId);
+            setShowGameWaitingArea(true);
+
         } catch (error) {
             console.error('API isteği sırasında bir hata oluştu:', error);
             Alert.alert('Hata', 'API isteği sırasında bir hata oluştu.');
         }
     };
+
 
     const handleNameChange = (name: string) => {
         setPlayerName(name);

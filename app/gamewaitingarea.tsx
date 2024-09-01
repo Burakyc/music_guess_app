@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, StatusBar, Platform } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, StatusBar } from 'react-native';
+import GameScreen from './gamescreen'; // Dosya yolunu kontrol edin
 import axios from 'axios';
 
 interface WaitingScreenProps {
@@ -9,7 +10,7 @@ interface WaitingScreenProps {
 }
 
 export default function WaitingScreen({ playerId, onProceed, onBack }: WaitingScreenProps) {
-    const [lobbies, setLobbies] = useState<any[]>([]);
+    const [lobbies, setLobbies] = useState<{ lobbyId: string; players: { id: string; name: string }[] } | null>(null);
 
     const fetchLobbies = async () => {
         try {
@@ -18,13 +19,19 @@ export default function WaitingScreen({ playerId, onProceed, onBack }: WaitingSc
                 return;
             }
 
-            const response = await axios.get('http://127.0.0.1:5000/get-lobbies', {
+            const response = await axios.get('http://192.168.1.106:5000/get-lobbies', {
                 params: { playerId }
             });
 
             console.log('API Response:', response.data);
 
-            if (Array.isArray(response.data)) {
+            // Check if the response data is an object with the expected properties
+            if (
+                response.data &&
+                typeof response.data === 'object' &&
+                response.data.lobbyId &&
+                Array.isArray(response.data.players)
+            ) {
                 setLobbies(response.data);
             } else {
                 console.error('API yanıtında beklenen formatta lobi bilgisi bulunamadı.');
@@ -35,12 +42,18 @@ export default function WaitingScreen({ playerId, onProceed, onBack }: WaitingSc
     };
 
     useEffect(() => {
-        fetchLobbies();
+        fetchLobbies(); // Fetch data initially
+
+        // Set up interval to fetch data every 5 seconds
+        const intervalId = setInterval(fetchLobbies, 5000);
+
+        // Clear interval on component unmount
+        return () => clearInterval(intervalId);
     }, [playerId]);
 
-    // Bu fonksiyon artık diziyi '\n' ile ayırarak bir string oluşturur
-    const formatPlayers = (players: string[]) => {
-        return players.join('\n');
+    // Format players array to a string with player names
+    const formatPlayers = (players: { id: string; name: string }[]) => {
+        return players.map(player => player.name).join('\n');
     };
 
     return (
@@ -54,14 +67,13 @@ export default function WaitingScreen({ playerId, onProceed, onBack }: WaitingSc
             <View style={styles.content}>
                 <View style={styles.lobbyContainer}>
                     <Text style={styles.lobbyHeader}>Lobideki Kişiler:</Text>
-                    {lobbies.length > 0 ? (
+                    {lobbies ? (
                         <View>
                             <Text style={styles.lobbyItemHeader}>
-                                Lobby ID: {lobbies[0]}
+                                Lobby ID: {lobbies.lobbyId}
                             </Text>
-
                             <Text style={styles.lobbyItemHeader}>
-                                Oyuncular: {"\n" + formatPlayers(lobbies[1])}
+                                Oyuncular: {"\n" + formatPlayers(lobbies.players)}
                             </Text>
                         </View>
                     ) : (
@@ -82,7 +94,6 @@ export default function WaitingScreen({ playerId, onProceed, onBack }: WaitingSc
         </View>
     );
 }
-
 const styles = StyleSheet.create({
     container: {
         flex: 1,

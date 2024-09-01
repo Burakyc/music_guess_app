@@ -1,6 +1,8 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import uuid
+import csv
+import os
 
 app = Flask(__name__)
 CORS(app)  # Allow CORS for all domains (for development purposes)
@@ -8,7 +10,16 @@ CORS(app)  # Allow CORS for all domains (for development purposes)
 lobbies = {}  # Dictionary to store lobby information
 lobby_players = {}  # Dictionary to store players in each lobby
 LOBBY_LIMIT = 4  # Maximum number of players per lobby
+CSV_FILE = 'lobbies.csv'  # CSV file name
 
+# Function to write lobby data to CSV
+def write_to_csv(lobby_id, player_info):
+    file_exists = os.path.isfile(CSV_FILE)
+    with open(CSV_FILE, mode='a', newline='') as file:
+        writer = csv.writer(file)
+        if not file_exists:
+            writer.writerow(['Lobby ID', 'Player ID', 'Player Name'])  # Write header if file is new
+        writer.writerow([lobby_id, player_info['id'], player_info['name']])
 
 def find_or_create_lobby(player_name, selected_type, selected_category, selected_search_option, selected_custom_game_option):
     # Assign a unique ID to the player
@@ -23,6 +34,7 @@ def find_or_create_lobby(player_name, selected_type, selected_category, selected
             len(lobby_players[lobby_id]) < LOBBY_LIMIT):
             # A suitable lobby is found, add the player to it
             lobby_players[lobby_id].append(player_info)
+            write_to_csv(lobby_id, player_info)  # Write to CSV
             return lobby_id, 'Lobiye katıldınız', lobby_players[lobby_id]
     
     # No suitable lobby found, create a new lobby
@@ -39,7 +51,7 @@ def find_or_create_lobby(player_name, selected_type, selected_category, selected
     # Add the player to the new lobby
     lobbies[lobby_id]['players'].append(player_info)
     lobby_players[lobby_id] = [player_info]
-    
+    write_to_csv(lobby_id, player_info)  # Write to CSV
 
     return lobby_id, 'Lobi oluşturuldu', lobbies[lobby_id]
 
@@ -75,35 +87,50 @@ def create_lobby():
 
 @app.route('/get-lobbies', methods=['GET'])
 def get_lobbies():
-    player_id = request.args.get('playerId')
-    if not player_id:
-        return jsonify({'message': 'Oyuncu ID gerekli', 'status': 'error'}), 400
+    lobby_id = request.args.get('playerId')
+    if not lobby_id:
+        return jsonify({'message': 'Lobi ID gerekli', 'status': 'error'}), 400
     
-    # Lobbies sözlüğünü bir string olarak yazdırın
-    print("lobbies = ", lobbies)
+    print(f"Received request for Lobby ID: {lobby_id}")
 
     player_lobbies = []
+
+    try:
+        with open(CSV_FILE, mode='r', encoding='utf-8') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                if row['Lobby ID'].strip() == lobby_id.strip():  # Match the lobby ID
+                    player_lobbies.append({
+                        'id': row['Player ID'].strip(),
+                        'name': row['Player Name'].strip()
+                    })
+    except UnicodeDecodeError:
+        print(f"Error decoding the CSV file with utf-8 encoding. Trying with a different encoding.")
+        try:
+            with open(CSV_FILE, mode='r', encoding='latin1') as file:
+                reader = csv.DictReader(file)
+                for row in reader:
+                    if row['Lobby ID'].strip() == lobby_id.strip():  # Match the lobby ID
+                        player_lobbies.append({
+                            'id': row['Player ID'].strip(),
+                            'name': row['Player Name'].strip()
+                        })
+        except Exception as e:
+            print(f"Error reading CSV file: {e}")
+            return jsonify({'message': 'CSV dosyası okunamadı', 'status': 'error'}), 500
     
-    # Tüm lobiler üzerinde döngü
-    for lobby_id, lobby_info in lobbies.items():
-        # Mevcut lobi için oyuncuları al
-        players_in_lobby = lobby_players.get(lobby_id, [])
-        
-        # Listeyi stringe dönüştürerek yazdır
-        print("lobideki kişilerrrrrrrr : \n" + str(players_in_lobby))
-        
-        # Oyuncu ID'si bu lobide mi kontrol et
-        if any(player['id'] == player_id for player in players_in_lobby):
-            player_names = [player['name'] for player in players_in_lobby]
-            player_lobbies.append({
-                'id': lobby_id,
-                'players': player_names,
-                'status': 'Lobiye katıldınız',
-                **lobby_info
-            })
-    # Oyuncuların isimlerini almak için list comprehension kullanın
-    player_names = [player['name'] for player in players_in_lobby]
-    return jsonify(lobby_id,player_names), 200
+    if not player_lobbies:
+        print(f"Lobby ID {lobby_id} not found in CSV.")
+        return jsonify({'message': 'Bu lobiye ait oyuncu bulunamadı', 'status': 'error'}), 404
+
+    print(f"Lobi ID: {lobby_id}, Oyuncular: {player_lobbies}")
+    
+    return jsonify({
+        'lobbyId': lobby_id,
+        'players': player_lobbies,
+        'status': 'Lobiye katıldınız'
+    }), 200
+
 
 
 

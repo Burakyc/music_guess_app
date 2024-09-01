@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, SafeAreaView, Dimensions, TouchableOpacity } from 'react-native';
-import YoutubeIframe from 'react-native-youtube-iframe';
+import { StyleSheet, View, Text, SafeAreaView, Dimensions, TouchableOpacity, Platform } from 'react-native';
+import YouTube from 'react-youtube'; // Web only
+import { WebView } from 'react-native-webview'; // Mobile only
 
 export default function GameScreen() {
     const [score, setScore] = useState(0);
     const [videoId, setVideoId] = useState('');
 
     useEffect(() => {
-        setVideoId('dQw4w9WgXcQ'); // Example YouTube video ID
+        setVideoId('TUVcZfQe-Kw'); // Example YouTube video ID
     }, []);
 
     const handleOptionPress = (isCorrect: boolean) => {
@@ -21,7 +22,6 @@ export default function GameScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-
             <View style={styles.headerContainer}>
                 <Text style={styles.welcomeText}>Welcome to Music Guess App!</Text>
             </View>
@@ -29,16 +29,25 @@ export default function GameScreen() {
             <View style={styles.videoContainer}>
                 {videoId ? (
                     <View style={styles.videoWrapper}>
-                        <YoutubeIframe
-                            height={videoHeight}
-                            width={videoWidth}
-                            videoId={videoId}
-                            play={true}
-                            initialPlayerParams={{
-                                start: 10, // Start video at the 10th second
-                            }}
-                            onChangeState={event => console.log(event)}
-                        />
+                        {Platform.OS === 'web' ? (
+                            <YouTube
+                                videoId={videoId}
+                                opts={{
+                                    height: '200',
+                                    width: videoWidth.toString(),
+                                    playerVars: {
+                                        autoplay: 1,
+                                    },
+                                }}
+                            />
+                        ) : (
+                            <WebView
+                                style={{ width: videoWidth, height: videoHeight }}
+                                javaScriptEnabled={true}
+                                domStorageEnabled={true}
+                                source={{ uri: `https://www.youtube.com/embed/${videoId}?autoplay=1` }}
+                            />
+                        )}
                     </View>
                 ) : (
                     <Text style={styles.placeholderText}>Loading video...</Text>
@@ -65,7 +74,6 @@ export default function GameScreen() {
                     </TouchableOpacity>
                 </View>
             </View>
-
         </SafeAreaView>
     );
 }
